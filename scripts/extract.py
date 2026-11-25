@@ -182,20 +182,23 @@ def decode_cfemail(hex_value: str) -> str | None:
 
 def replace_cfemail(html_text: str) -> str:
     def repl(match: re.Match[str]) -> str:
-        email = decode_cfemail(match.group(1))
+        full = match.group(0)
+        raw_hex = re.search(r'data-cfemail=["\']([0-9a-fA-F]+)["\']', full)
+        email = decode_cfemail(raw_hex.group(1)) if raw_hex else None
         if not email:
-            return match.group(0)
-        return f'<a href="mailto:{html.escape(email, quote=True)}">{html.escape(email)}</a>'
+            return full
+        safe = html.escape(email, quote=True)
+        # The Cloudflare email decoder removes the wrapper anchor and leaves
+        # plain text in the parent paragraph.  Matching that DOM is important
+        # for line-height/pixel parity in the cloned footer.
+        return safe
 
-    # Cloudflare's email-protection anchor can contain either a span or
-    # plain text; handle both forms.
     html_text = re.sub(
         r'<a\b[^>]*data-cfemail=["\']([0-9a-fA-F]+)["\'][^>]*>.*?</a>',
         repl,
         html_text,
         flags=re.I | re.S,
     )
-    # Remove the Cloudflare decoder script; the emails are now plain mailto links.
     html_text = re.sub(
         r'<script\b[^>]*src=["\'][^"\']*email-decode[^"\']*["\'][^>]*>\s*</script>',
         "",
@@ -205,19 +208,17 @@ def replace_cfemail(html_text: str) -> str:
     return html_text
 
 
-
 def absolutize_head_links(text: str) -> str:
     """Keep canonical/hreflang absolute even though navigation is root-relative."""
     def repl(match: re.Match[str]) -> str:
         tag = match.group(0)
         if not re.search(r'rel=["\'][^"\']*(?:canonical|alternate)[^"\']*["\']', tag, re.I):
             return tag
-        tag = re.sub(
+        return re.sub(
             r'(href=["\'])(/[^"\']*)',
             lambda m: m.group(1) + BASE + m.group(2),
             tag,
         )
-        return tag
     return re.sub(r'<link\b[^>]*>', repl, text, flags=re.I)
 
 def rewrite_html_document(text: str, page_url: str, assets: Assets) -> str:
