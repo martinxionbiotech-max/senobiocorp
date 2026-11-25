@@ -1,0 +1,19 @@
+---
+import fs from 'node:fs';
+import path from 'node:path';
+import pages from '../data/pages.json';
+
+export function getStaticPaths() {
+  return pages
+    .filter((page) => page.path !== '/')
+    .map((page) => ({
+      params: { slug: page.path.replace(/^\/|\/$/g, '') },
+      props: { file: page.file },
+    }));
+}
+
+const { file } = Astro.props;
+const html = fs.readFileSync(path.join(process.cwd(), 'src/html', file), 'utf8');
+---
+
+<Fragment set:html={html} />

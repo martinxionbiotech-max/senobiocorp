@@ -1,0 +1,8 @@
+node_modules/
+.astro/
+dist/
+raw/html/
+raw/*.json
+raw/*.tsv
+
+raw/*.xml
